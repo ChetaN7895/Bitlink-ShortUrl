@@ -1,23 +1,44 @@
-
-import clientPromise from "@/lib/mongodb"
+import { NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
 
 export async function POST(request) {
+  try {
+    console.log("🔍 Parsing request...");
+    const body = await request.json();
+    console.log("✅ Request body:", body);
 
-    const body = await request.json() 
     const client = await clientPromise;
-    const db = client.db("bitlinks")
-    const collection = db.collection("url")
+    console.log("✅ MongoDB connected");
 
-    // Check if the short url exists
-    const doc = await collection.findOne({shorturl: body.shorturl})
-    if(doc){
-        return Response.json({success: false, error: true,  message: 'URL already exists!' })
+    const db = client.db("bitlinks");
+    const collection = db.collection("url");
+
+    // Check if URL exists
+    const existing = await collection.findOne({ shorturl: body.shorturl });
+    console.log("🔍 Existing URL check:", existing);
+
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: true, message: "URL already exists!" },
+        { status: 400 }
+      );
     }
 
-    const result = await collection.insertOne({
-        url: body.url,
-        shorturl: body.shorturl
-    })
+    await collection.insertOne({
+      url: body.url,
+      shorturl: body.shorturl,
+    });
+    console.log("✅ Inserted new URL");
 
-    return Response.json({success: true, error: false,  message: 'URL Generated Successfully' })
+    return NextResponse.json(
+      { success: true, error: false, message: "URL Generated Successfully" },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("❌ API Error:", error);
+    return NextResponse.json(
+      { success: false, error: true, message: error.message },
+      { status: 500 }
+    );
   }
+}
